@@ -5,10 +5,13 @@ from pydantic import BaseModel
 
 from .adapters import OpenAiCompatibleGenerator, YandexAiStudioRetriever
 from .config import Settings
+from .max_api import MaxApiClient
 from .service import StrictRagService
 
 
 class MaxMessage(BaseModel):
+    message_id: str | None = None
+    chat_id: str
     user_id: str
     text: str
 
@@ -18,7 +21,7 @@ class MaxWebhookRequest(BaseModel):
 
 
 class MaxWebhookResponse(BaseModel):
-    reply: str
+    status: str
     grounded: bool
 
 
@@ -36,6 +39,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         model=cfg.yandex_gpt_model_uri,
         timeout_seconds=cfg.request_timeout_seconds,
     )
+    max_client = MaxApiClient(
+        token=cfg.max_bot_token,
+        base_url=cfg.max_api_base_url,
+        timeout_seconds=cfg.request_timeout_seconds,
+    )
     rag_service = StrictRagService(
         retriever=retriever,
         generator=generator,
@@ -43,7 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         min_score=cfg.rag_min_score,
     )
 
-    app = FastAPI(title="MAX RAG Bot", version="0.1.0")
+    app = FastAPI(title="MAX RAG Bot", version="0.2.0")
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -58,6 +66,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=401, detail="Invalid webhook secret")
 
         answer = rag_service.answer(payload.message.text)
-        return MaxWebhookResponse(reply=answer.text, grounded=answer.grounded)
+        max_client.send_text(
+            chat_id=payload.message.chat_id,
+            text=answer.text,
+            reply_to_message_id=payload.message.message_id,
+        )
+        return MaxWebhookResponse(status="sent", grounded=answer.grounded)
 
     return app

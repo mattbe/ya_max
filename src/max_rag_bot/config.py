@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     max_bot_token: str = Field(default="", alias="MAX_TOKEN")
     max_webhook_secret: str = Field(default="", alias="MAX_WEBHOOK_SECRET")
+    max_api_base_url: str = Field(default="https://botapi.max.ru", alias="MAX_API_BASE_URL")
 
     yandex_api_key: str = Field(default="", alias="YANDEX_API_KEY")
     yandex_folder_id: str = Field(default="", alias="YANDEX_FOLDER_ID")
